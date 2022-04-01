@@ -30,12 +30,12 @@ private:
 		WRITE_SLAVE = 0x6
 	};
 
-	static constexpr const uint8_t Cmd_ReadAll[] = {0xf8, 0x4, 0x0, 0x0, 0x0, 0x9, 0x65, 0x24};
-	static constexpr const uint8_t Cmd_ResetEnergy[] = {0xf8, 0x42, 0x41, 0xc2};
-	static constexpr const uint8_t Cmd_Calibrate[] = {0xf8, 0x41, 0x37, 0x21, 0x78, 0xb7};
+	static constexpr const uint8_t Cmd_ReadAll[] = {0x01, 0x04, 0x0, 0x0, 0x0, 0x9, 0x30, 0x0c};
+	static constexpr const uint8_t Cmd_ResetEnergy[] = {0x01, 0x42, 0x80, 0x11};
+	static constexpr const uint8_t Cmd_Calibrate[] = {0xf8, 0x41, 0x37, 0x21, 0xb7, 0x78};
 
 	PACK(struct RWBuf {	// Big-Endian
-		uint8_t slave_addr = 0xf8;
+		uint8_t slave_addr = 0x01;
 		CmdWord command;
 		uint16_t address;
 		uint16_t read_count_or_write_value;
@@ -61,15 +61,6 @@ private:
 			};
 		};
 		return crc;
-	}
-
-	template<typename T>
-	uint8_t* finalizeBuf(T& buf) const {
-		uint8_t* bytes = reinterpret_cast<uint8_t*>(&buf);
-		buf.len = htons(sizeof(T) - sizeof(T::stx));
-		buf.cksu
-		buf.cksum = htonl(buf.cksum);
-		return bytes;
 	}
 
 	std::vector<uint8_t> read() const;

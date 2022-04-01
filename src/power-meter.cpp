@@ -254,6 +254,8 @@ std::vector<uint8_t> PowerMeter::read() const {
 
 	int res = pselect(_fd + 1, &rx_fd_set, nullptr, nullptr, &_timeout, nullptr);
 
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 	if(res > 0) {
 		read_len = ::read(_fd, _readBuffer, sizeof(_readBuffer));
 	} else if(res < 0) {
@@ -272,14 +274,13 @@ std::vector<uint8_t> PowerMeter::read() const {
 
 	auto ret = std::vector<uint8_t>(read_len);
 	std::memcpy(ret.data(), _readBuffer, read_len);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));	// Pacing, required by BMS
 	return ret;
 }
 
 void PowerMeter::write(const uint8_t* cmd_buf, size_t sz) const {
 #ifndef WINDOWS
 	int sent_len = static_cast<int>(::write(_fd, cmd_buf, sz));
-	if (sent_len != sizeof(CmdBuf)) {
+	if (sent_len != sz) {
 		std::cerr << "Write wrong count: " << sent_len << " excpected " << sz << std::endl;
 		return;
 	}
