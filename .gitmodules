@@ -1,0 +1,3 @@
+[submodule "influxdb"]
+	path = influxdb
+	url = https://github.com/TheYonkk/influxdb-cpp-2.git
