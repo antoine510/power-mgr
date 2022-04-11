@@ -11,16 +11,18 @@ static constexpr const char* influxdb_org_name = "PowerPi";
 static constexpr const char* influxdb_house_bucket = "HousePower";
 
 int main(int argc, char** argv) {
-	using namespace std::chrono;
-
 	try {
 		auto influxdb_token = getenv("INFLUXDB_TOKEN");
 		if(!influxdb_token) throw std::invalid_argument("Missing INFLUXDB_TOKEN environment variable");
 
 		PowerMeter houseMeter(first_serial_device);
 		influxdb_cpp::server_info serverInfo("127.0.0.1", 8086, influxdb_org_name, influxdb_token, influxdb_house_bucket);
-	
+
 		while(true) {
+			const auto currentTP = std::chrono::system_clock::now();
+			const auto nextMinuteTP = std::chrono::ceil<std::chrono::minutes>(currentTP);
+			std::this_thread::sleep_until(nextMinuteTP);	// Perform measurments at minute marks
+
 			try {
 				PowerData data = houseMeter.ReadAll();
 
@@ -35,8 +37,6 @@ int main(int argc, char** argv) {
 			} catch(const std::exception& e) {
 				std::cerr << e.what() << std::endl;
 			}
-
-			std::this_thread::sleep_for(minutes(1));
 		}
 	} catch(const std::exception& e) {
 		std::cerr << e.what() << std::endl;
