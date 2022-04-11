@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
 					.field("power", data.power_dw / 10.f)
 					.field("energy", data.energy_wh / 1000.f)
 					.field("frequency", data.frequency_dhz / 10.f)
+					.field("cos_phi", data.power_factor / 100.f)
 					.post_http(serverInfo);
 			} catch(const std::exception& e) {
 				std::cerr << e.what() << std::endl;
