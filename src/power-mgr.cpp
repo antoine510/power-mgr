@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
 		auto influxdb_token = getenv("INFLUXDB_TOKEN");
 		if(!influxdb_token) throw std::invalid_argument("Missing INFLUXDB_TOKEN environment variable");
 
-		PowerMeter houseMeter(first_serial_device);
+		PowerMeter firstMeter(first_serial_device), secondMeter(second_serial_device);
 		influxdb_cpp::server_info serverInfo("127.0.0.1", 8086, influxdb_org_name, influxdb_token, influxdb_house_bucket);
 
 		while(true) {
@@ -24,16 +24,20 @@ int main(int argc, char** argv) {
 			std::this_thread::sleep_until(nextMinuteTP);	// Perform measurments at minute marks
 
 			try {
-				PowerData data = houseMeter.ReadAll();
+				PowerData firstData = firstMeter.ReadAll();
+				PowerData secondData = secondMeter.ReadAll();
+				PowerData& houseData = firstData.energy_wh > secondData.energy_wh ? firstData : secondData;
+				PowerData& solarData = firstData.energy_wh > secondData.energy_wh ? secondData : firstData;
 
 				influxdb_cpp::builder()
 					.meas("House")
-					.field("voltage", data.voltage_dv / 10.f)
-					.field("current", data.current_ma / 1000.f)
-					.field("power", data.power_dw / 10.f)
-					.field("energy", data.energy_wh / 1000.f)
-					.field("frequency", data.frequency_dhz / 10.f)
-					.field("cos_phi", data.power_factor / 100.f)
+					.field("voltage", houseData.voltage_dv / 10.f)
+					.field("current", houseData.current_ma / 1000.f)
+					.field("power", houseData.power_dw / 10.f)
+					.field("cos_phi", houseData.power_factor / 100.f)
+					.field("current_solar", solarData.current_ma / 1000.f)
+					.field("power_solar", solarData.power_dw / 10.f)
+					.field("cos_phi_solar", solarData.power_factor / 100.f)
 					.post_http(serverInfo);
 			} catch(const std::exception& e) {
 				std::cerr << e.what() << std::endl;
