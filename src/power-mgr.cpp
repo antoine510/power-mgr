@@ -54,6 +54,11 @@ int main(int argc, char** argv) {
 
 	influxdb_cpp::server_info serverInfo("127.0.0.1", 8086, influxdb_org_name, influxdb_token, influxdb_house_bucket);
 
+	influxdb_cpp::builder()
+		.meas("HouseExtra")
+		.field("restart", true)
+		.post_http(serverInfo);
+
 	auto nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(std::chrono::system_clock::now());
 
 	while(true) {
