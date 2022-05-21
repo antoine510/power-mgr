@@ -45,8 +45,8 @@ int main(int argc, char** argv) {
 		auto firstMeter = std::make_unique<PowerMeter>(first_serial_device);
 		auto secondMeter = std::make_unique<PowerMeter>(second_serial_device);
 		PowerData firstData = firstMeter->ReadAll(), secondData = secondMeter->ReadAll();
-		houseMeter = std::move(firstData.energy_wh > secondData.energy_wh ? firstMeter : secondMeter);
-		solarMeter = std::move(firstData.energy_wh > secondData.energy_wh ? secondMeter : firstMeter);
+		houseMeter = std::move(firstData.energy_wh < secondData.energy_wh ? firstMeter : secondMeter);
+		solarMeter = std::move(firstData.energy_wh < secondData.energy_wh ? secondMeter : firstMeter);
 	} catch(const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return -1;
