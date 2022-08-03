@@ -71,6 +71,11 @@ int main(int argc, char** argv) {
 				houseData[i] = houseMeter->ReadAll();
 				solarData[i] = solarMeter->ReadAll();
 
+				if(solarData[i].power_dw < 100) {	// If production is bellow 10W, it is actually consumption
+					houseData[i].power_dw += solarData[i].power_dw;
+					solarData[i].power_dw = 0;
+				}
+
 				if(i < sample_count - 1) std::this_thread::sleep_for(sample_interval - std::chrono::milliseconds(150));
 			}
 
