@@ -4,8 +4,7 @@
 #include "power-meter-data.h"
 #include <influxdb.hpp>
 
-static constexpr const char* first_serial_device = "/dev/ttyUSB0";
-static constexpr const char* second_serial_device = "/dev/ttyUSB1";
+static constexpr const char* serial_device = "/dev/ttyUSB0";
 
 static constexpr const char* influxdb_org_name = "PowerPi";
 static constexpr const char* influxdb_house_bucket = "HousePower";
@@ -17,7 +16,7 @@ static constexpr const std::chrono::seconds sample_interval = std::chrono::secon
 static constexpr const auto sample_count = LogPeriod(1) / sample_interval;
 
 
-PowerData houseData[sample_count], solarData[sample_count];
+PowerData houseData[sample_count];
 PowerData averageSamples(PowerData* dataArray) {
 	PowerData res{};
 	for(unsigned i = 0; i < sample_count; ++i) {
@@ -35,18 +34,14 @@ PowerData averageSamples(PowerData* dataArray) {
 }
 
 int main(int argc, char** argv) {
-	std::unique_ptr<PowerMeter> houseMeter, solarMeter;
+	std::unique_ptr<PowerMeter> houseMeter;
 	std::string influxdb_token;
 	try {
 		auto env_token = getenv("INFLUXDB_TOKEN");
 		if(!env_token) throw std::invalid_argument("Missing INFLUXDB_TOKEN environment variable");
 		influxdb_token = env_token;
 
-		auto firstMeter = std::make_unique<PowerMeter>(first_serial_device);
-		auto secondMeter = std::make_unique<PowerMeter>(second_serial_device);
-		PowerData firstData = firstMeter->ReadAll(), secondData = secondMeter->ReadAll();
-		houseMeter = std::move(firstData.energy_wh < secondData.energy_wh ? firstMeter : secondMeter);
-		solarMeter = std::move(firstData.energy_wh < secondData.energy_wh ? secondMeter : firstMeter);
+		houseMeter = std::make_unique<PowerMeter>(serial_device);
 	} catch(const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return -1;
@@ -69,17 +64,11 @@ int main(int argc, char** argv) {
 		try {
 			for(int i = 0; i < sample_count; ++i) {
 				houseData[i] = houseMeter->ReadAll();
-				solarData[i] = solarMeter->ReadAll();
-
-				if(solarData[i].power_dw < 100) {	// If production is bellow 10W, it is actually consumption
-					houseData[i].power_dw += solarData[i].power_dw;
-					solarData[i].power_dw = 0;
-				}
 
 				if(i < sample_count - 1) std::this_thread::sleep_for(sample_interval - std::chrono::milliseconds(150));
 			}
 
-			PowerData houseAverage = averageSamples(houseData), solarAverage = averageSamples(solarData);
+			PowerData houseAverage = averageSamples(houseData);
 
 			influxdb_cpp::builder()
 				.meas("House")
@@ -87,16 +76,12 @@ int main(int argc, char** argv) {
 				.field("current", houseAverage.current_ma / 1000.f)
 				.field("power", houseAverage.power_dw / 10.f)
 				.field("cos_phi", houseAverage.power_factor / 100.f)
-				.field("current_solar", solarAverage.current_ma / 1000.f)
-				.field("power_solar", solarAverage.power_dw / 10.f)
-				.field("cos_phi_solar", solarAverage.power_factor / 100.f)
 				.post_http(serverInfo);
 
 			if(currentTP > nextExtraTP) {
 				influxdb_cpp::builder()
 					.meas("HouseExtra")
 					.field("energy", houseAverage.energy_wh / 1000.f)
-					.field("energy_solar", solarAverage.energy_wh / 1000.f)
 					.post_http(serverInfo);
 				nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(currentTP);
 			}
