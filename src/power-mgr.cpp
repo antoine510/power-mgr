@@ -83,20 +83,20 @@ int main(int argc, char** argv) {
 
 			influxdb_cpp::builder()
 				.meas("House")
-				.field("voltage", houseAverage.voltage_dv / 10.f)
-				.field("current", houseAverage.current_ma / 1000.f)
-				.field("power", houseAverage.power_dw / 10.f)
-				.field("cos_phi", houseAverage.power_factor / 100.f)
-				.field("current_solar", solarAverage.current_ma / 1000.f)
-				.field("power_solar", solarAverage.power_dw / 10.f)
-				.field("cos_phi_solar", solarAverage.power_factor / 100.f)
+				.field("voltage", houseAverage.voltage_dv / 10.f, 1)
+				.field("current", houseAverage.current_ma / 1000.f, 3)
+				.field("power", houseAverage.power_dw / 10.f, 1)
+				.field("cos_phi", houseAverage.power_factor / 100.f, 2)
+				.field("current_solar", solarAverage.current_ma / 1000.f, 3)
+				.field("power_solar", solarAverage.power_dw / 10.f, 1)
+				.field("cos_phi_solar", solarAverage.power_factor / 100.f, 2)
 				.post_http(serverInfo);
 
 			if(currentTP > nextExtraTP) {
 				influxdb_cpp::builder()
 					.meas("HouseExtra")
-					.field("energy", houseAverage.energy_wh / 1000.f)
-					.field("energy_solar", solarAverage.energy_wh / 1000.f)
+					.field("energy", houseAverage.energy_wh / 1000.f, 3)
+					.field("energy_solar", solarAverage.energy_wh / 1000.f, 3)
 					.post_http(serverInfo);
 				nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(currentTP);
 			}
