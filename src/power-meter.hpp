@@ -1,26 +1,15 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <stdexcept>
-
-#ifndef WINDOWS
-#include <netinet/in.h>
-#endif
+#include "SerialHandler.hpp"
 
 #ifdef __GNUC__
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif
 
-#ifdef _MSC_VER
-#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
-#endif
-
 
 class PowerMeter {
 public:
-	PowerMeter(const std::string& path, int baudrate = 9600);
-	~PowerMeter() noexcept;
+	PowerMeter(const std::string& path);
 
 	struct PowerData ReadAll();
 private:
@@ -42,34 +31,5 @@ private:
 		uint16_t cksum;
 	});
 
-	class ReadTimeoutException : public std::runtime_error {
-	public:
-		ReadTimeoutException() : std::runtime_error("Read timed-out") {}
-	};
-
-	uint16_t modbusCRC(uint8_t* data, int length) {
-		uint16_t crc = 0xFFFF;
-		for(int pos = 0; pos<length; pos++){
-			crc ^= (uint16_t)data[pos];
-			for( int i=0; i<8; i++ ){
-				if(crc & 1){      // LSB is set
-					crc >>= 1;                 // Shift right
-					crc ^= 0xA001;             // XOR 0xA001
-				}else{                         // LSB is not set
-					crc >>= 1;
-				};
-			};
-		};
-		return crc;
-	}
-
-	std::vector<uint8_t> read() const;
-	void write(const uint8_t* cmd_buf, size_t sz) const;
-
-#ifndef WINDOWS
-	int _fd = -1;
-	struct timespec _timeout = { 0, 100000000 };	// 100 ms
-#else
-	void* _handle = nullptr;
-#endif
+	SerialHandler _serial;
 };

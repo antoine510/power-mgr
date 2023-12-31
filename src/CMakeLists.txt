@@ -4,10 +4,16 @@
 ########
 
 set(SOURCE_FILES
+	SerialHandler.hpp
+	SerialHandler.cpp
+
 	power-meter-data.h
 
 	power-meter.hpp
 	power-meter.cpp
+
+	SolarHeater.cpp
+	SolarHeater.hpp
 
 	power-mgr.cpp
 )

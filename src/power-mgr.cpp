@@ -2,10 +2,12 @@
 #include <thread>
 #include "power-meter.hpp"
 #include "power-meter-data.h"
+#include "SolarHeater.hpp"
 #include <influxdb.hpp>
 
 static constexpr const char* first_serial_device = "/dev/ttyUSB0";
 static constexpr const char* second_serial_device = "/dev/ttyUSB1";
+static constexpr const char* heater_serial_device = "/dev/serial0";
 
 static constexpr const char* influxdb_org_name = "PowerPi";
 static constexpr const char* influxdb_house_bucket = "HousePower";
@@ -36,6 +38,8 @@ PowerData averageSamples(PowerData* dataArray) {
 
 int main(int argc, char** argv) {
 	std::unique_ptr<PowerMeter> houseMeter, solarMeter;
+	std::unique_ptr<SolarHeater> solarHeater;
+
 	std::string influxdb_token;
 	try {
 		auto env_token = getenv("INFLUXDB_TOKEN");
@@ -47,6 +51,8 @@ int main(int argc, char** argv) {
 		PowerData firstData = firstMeter->ReadAll(), secondData = secondMeter->ReadAll();
 		houseMeter = std::move(firstData.energy_wh < secondData.energy_wh ? firstMeter : secondMeter);
 		solarMeter = std::move(firstData.energy_wh < secondData.energy_wh ? secondMeter : firstMeter);
+
+		solarHeater = std::make_unique<SolarHeater>(heater_serial_device);
 	} catch(const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return -1;
@@ -80,6 +86,7 @@ int main(int argc, char** argv) {
 			}
 
 			PowerData houseAverage = averageSamples(houseData), solarAverage = averageSamples(solarData);
+			HeaterData heaterData = solarHeater->ReadAll();
 
 			influxdb_cpp::builder()
 				.meas("House")
@@ -100,6 +107,11 @@ int main(int argc, char** argv) {
 					.post_http(serverInfo);
 				nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(currentTP);
 			}
+
+			influxdb_cpp::builder()
+				.meas("Heater")
+				.field("temperature", heaterData.temp_dC / 10.f, 1)
+				.post_http(serverInfo);
 		} catch(const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 		}
