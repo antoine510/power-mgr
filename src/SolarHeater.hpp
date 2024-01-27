@@ -4,6 +4,7 @@
 
 struct HeaterData {
     int16_t temp_dC;    // deciCelcius
+    bool heater_on;
 };
 
 class SolarHeater {

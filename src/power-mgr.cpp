@@ -51,8 +51,6 @@ int main(int argc, char** argv) {
 		PowerData firstData = firstMeter->ReadAll(), secondData = secondMeter->ReadAll();
 		houseMeter = std::move(firstData.energy_wh < secondData.energy_wh ? firstMeter : secondMeter);
 		solarMeter = std::move(firstData.energy_wh < secondData.energy_wh ? secondMeter : firstMeter);
-
-		solarHeater = std::make_unique<SolarHeater>(heater_serial_device);
 	} catch(const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return -1;
@@ -72,6 +70,12 @@ int main(int argc, char** argv) {
 		const auto nextMinuteTP = std::chrono::ceil<LogPeriod>(currentTP);
 		std::this_thread::sleep_until(nextMinuteTP);	// Perform measurments at minute marks
 
+		if(!solarHeater) {
+			try {
+				solarHeater = std::make_unique<SolarHeater>(heater_serial_device);
+			} catch(const std::exception&) {}
+		}
+
 		try {
 			for(int i = 0; i < sample_count; ++i) {
 				houseData[i] = houseMeter->ReadAll();
@@ -86,7 +90,6 @@ int main(int argc, char** argv) {
 			}
 
 			PowerData houseAverage = averageSamples(houseData), solarAverage = averageSamples(solarData);
-			HeaterData heaterData = solarHeater->ReadAll();
 
 			influxdb_cpp::builder()
 				.meas("House")
@@ -108,10 +111,15 @@ int main(int argc, char** argv) {
 				nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(currentTP);
 			}
 
-			influxdb_cpp::builder()
-				.meas("Heater")
-				.field("temperature", heaterData.temp_dC / 10.f, 1)
-				.post_http(serverInfo);
+			if(solarHeater) {
+				HeaterData heaterData = solarHeater->ReadAll();
+
+				influxdb_cpp::builder()
+					.meas("Heater")
+					.field("temperature", heaterData.temp_dC / 10.f, 1)
+					.field("heater_on", heaterData.heater_on)
+					.post_http(serverInfo);
+			}
 		} catch(const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 		}
