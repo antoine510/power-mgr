@@ -15,8 +15,11 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
 
-#include "ir-encode.hpp"
+#include "LIRCException.hpp"
+#include "ir.hpp"
 
 #include <linux/lirc.h>
 
@@ -31,82 +34,49 @@
 
 /* See drivers/media/rc/ir-lirc-codec.c line 23 */
 #define LIRCBUF_SIZE	512
-#define IR_DEFAULT_TIMEOUT 125000
 
 
-int open_lirc(const char *device, rc_proto proto)
-{
+int IR::lirc_open(const char *device, ir_proto proto) {
 	int fd;
 	unsigned features;
 
 	fd = TEMP_FAILURE_RETRY(open(device, O_RDONLY));
-	if (fd == -1) {
-		fprintf(stderr, "%s: cannot open: %m\n", device);
-		return -1;
-	}
+	if (fd == -1) throw LIRCException(device, "couldn't open lirc device");
 
-	rc = ioctl(fd, LIRC_GET_FEATURES, &features);
-	if (rc) {
-		fprintf(stderr, "%s: failed to get lirc features: %m\n", device);
-		close(fd);
-		return -1;
-	}
+	try {
+		int rc = ioctl(fd, LIRC_GET_FEATURES, &features);
+		if (rc) throw LIRCException(device, "failed to get lirc features");
 
-	if (!(features & LIRC_CAN_SEND_PULSE)) {
-		fprintf(stderr, "%s: device cannot send raw ir\n", device);
-		close(fd);
-		return -1;
-	}
+		if (!(features & LIRC_CAN_SEND_PULSE)) throw LIRCException(device, "cannot send raw ir");
+		if (!(features & LIRC_CAN_SET_SEND_CARRIER)) throw LIRCException(device, "not able to set carrier frequency");
 
-	if (!(features & LIRC_CAN_SET_SEND_CARRIER)) {
-		fprintf(stderr, "%s: does not support setting send carrier frequency\n", device);
-		close(fd);
-		return -1;
-	}
+		unsigned carrier = IR::protocol_carrier(proto);
+		rc = ioctl(fd, LIRC_SET_SEND_CARRIER, &carrier);
+		if (rc) throw LIRCException(device, "error setting carrier frequency");
 
-	unsigned carrier = protocol_carrier(proto);
-	rc = ioctl(fd, LIRC_SET_SEND_CARRIER, &carrier);
-	if (rc != 0) {
-		fprintf(stderr, "warning: %s: set send carrier returned %d, should return 0\n", device, rc);
-		close(fd);
-		return -1;
-	}
+		int mode = LIRC_MODE_PULSE;
+		if (ioctl(fd, LIRC_SET_SEND_MODE, &mode)) throw LIRCException(device, "failed to set send mode pulse");
 
-	int mode = LIRC_MODE_PULSE;
-	if (ioctl(fd, LIRC_SET_SEND_MODE, &mode)) {
-		fprintf(stderr, "%s: failed to set send mode: %m\n", device);
+	} catch(const std::exception&) {
 		close(fd);
-		return -1;
+		throw;
 	}
 
 	return fd;
 }
 
-int lirc_send(int fd, rc_proto proto, unsigned scancode) {
-	if(!protocol_scancode_valid(proto, scancode)) {
-		fprintf(stderr, "Invalid scancode %d for given protocol\n", scancode);
-		return -1;
-	}
+void IR::lirc_send(int fd, ir_proto proto, unsigned scancode) {
+	if(!protocol_scancode_valid(proto, scancode)) throw LIRCException("Invalid IR scancode");
 
 	unsigned len;
 	unsigned buf[LIRCBUF_SIZE];
-	len = protocol_encode(proto, scancode, buf);
+	len = IR::protocol_encode(proto, scancode, buf);
 
 	size_t size = len * sizeof(unsigned);
 	ssize_t ret = TEMP_FAILURE_RETRY(write(fd, buf, size));
-	if (ret < 0) {
-		fprintf(stderr, "Failed to send IR: %m\n");
-		return -1;
-	}
-
-	if (size < ret) {
-		fprintf(stderr, "warning: Sent IR %zd out %zd edges\n", ret / sizeof(unsigned), len);
-		return -1;
-	}
-
-	return 0;
+	if (ret != size) throw LIRCException("Failed to send IR");
 }
 
-void lirc_close(int fd) {
+void IR::lirc_close(int fd) {
 	close(fd);
 }

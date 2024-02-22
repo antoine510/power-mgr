@@ -23,13 +23,6 @@ private:
 	static constexpr const uint8_t Cmd_ResetEnergy[] = {0x01, 0x42, 0x80, 0x11};
 	static constexpr const uint8_t Cmd_Calibrate[] = {0xf8, 0x41, 0x37, 0x21, 0xb7, 0x78};
 
-	PACK(struct RWBuf {	// Big-Endian
-		uint8_t slave_addr = 0x01;
-		CmdWord command;
-		uint16_t address;
-		uint16_t read_count_or_write_value;
-		uint16_t cksum;
-	});
 
 	SerialHandler _serial;
 };

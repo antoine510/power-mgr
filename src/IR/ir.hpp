@@ -1,7 +1,11 @@
 #pragma once
 
-#include "ir-encode.h"
+#include "ir-encode.hpp"
 
-int lirc_open(const char *device, rc_proto proto);
-int lirc_send(int fd, rc_proto proto, unsigned scancode);
+namespace IR {
+
+int lirc_open(const char *device, ir_proto proto);
+void lirc_send(int fd, ir_proto proto, unsigned scancode);
 void lirc_close(int fd);
+
+}

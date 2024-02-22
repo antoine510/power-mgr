@@ -3,7 +3,7 @@
 #include "power-meter.hpp"
 #include "power-meter-data.h"
 #include "SolarHeater.hpp"
-#include "IR/ir.hpp"
+#include "IR/heat-pump.hpp"
 #include <influxdb.hpp>
 
 static constexpr const char* first_serial_device = "/dev/ttyUSB0";
@@ -90,10 +90,11 @@ int main(int argc, char** argv) {
 				houseData[i] = houseMeter->ReadAll();
 				solarData[i] = solarMeter->ReadAll();
 
-				if(solarData[i].power_dw < 100) {	// If production is bellow 10W, it is actually consumption
+				if(solarData[i].power_dw < 70) {	// If production is bellow 7W, it is actually consumption
 					houseData[i].power_dw += solarData[i].power_dw;
 					solarData[i].power_dw = 0;
 				}
+				if(heatPump) heatPump->PowerUpdate(houseData[i].power_dw, solarData[i].power_dw);
 
 				if(i < sample_count - 1) std::this_thread::sleep_for(sample_interval - std::chrono::milliseconds(150));
 			}
@@ -129,12 +130,19 @@ int main(int argc, char** argv) {
 					.field("heater_on", heaterData.heater_on)
 					.post_http(serverInfo);
 			}
+
+			if(heatPump) {
+				int powerLevel = heatPump->GetCurrentPower();
+
+				influxdb_cpp::builder()
+					.meas("HeatPump")
+					.field("power_level", powerLevel)
+					.post_http(serverInfo);
+			}
 		} catch(const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 		}
 	}
-
-	lirc_close(lirc_fd);
 
 	return 0;
 }

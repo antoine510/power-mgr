@@ -4,6 +4,8 @@
 ########
 
 set(SOURCE_FILES
+	IR/LIRCException.hpp
+
 	IR/ir-encode.cpp
 	IR/ir-encode.hpp
 	IR/ir.cpp
@@ -27,8 +29,6 @@ set(SOURCE_FILES
 )
 add_executable(power-mgr ${SOURCE_FILES})
 
-if(WINDOWS_HOST)
-	set_target_properties(power-mgr PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/Install/bin/")
-endif()
+target_link_libraries(power-mgr pthread)
 
 install(TARGETS power-mgr RUNTIME)
