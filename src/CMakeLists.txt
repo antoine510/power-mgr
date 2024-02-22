@@ -4,6 +4,14 @@
 ########
 
 set(SOURCE_FILES
+	IR/ir-encode.cpp
+	IR/ir-encode.hpp
+	IR/ir.cpp
+	IR/ir.hpp
+
+	IR/heat-pump.hpp
+	IR/heat-pump.cpp
+
 	SerialHandler.hpp
 	SerialHandler.cpp
 

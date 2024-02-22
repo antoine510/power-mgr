@@ -3,11 +3,13 @@
 #include "power-meter.hpp"
 #include "power-meter-data.h"
 #include "SolarHeater.hpp"
+#include "IR/ir.hpp"
 #include <influxdb.hpp>
 
 static constexpr const char* first_serial_device = "/dev/ttyUSB0";
 static constexpr const char* second_serial_device = "/dev/ttyUSB1";
 static constexpr const char* heater_serial_device = "/dev/serial0";
+static constexpr const char* irled_serial_device = "/dev/lirc0";
 
 static constexpr const char* influxdb_org_name = "PowerPi";
 static constexpr const char* influxdb_house_bucket = "HousePower";
@@ -39,6 +41,7 @@ PowerData averageSamples(PowerData* dataArray) {
 int main(int argc, char** argv) {
 	std::unique_ptr<PowerMeter> houseMeter, solarMeter;
 	std::unique_ptr<SolarHeater> solarHeater;
+	std::unique_ptr<HeatPump> heatPump;
 
 	std::string influxdb_token;
 	try {
@@ -73,6 +76,12 @@ int main(int argc, char** argv) {
 		if(!solarHeater) {
 			try {
 				solarHeater = std::make_unique<SolarHeater>(heater_serial_device);
+			} catch(const std::exception&) {}
+		}
+
+		if(!heatPump) {
+			try {
+				heatPump = std::make_unique<HeatPump>(irled_serial_device);
 			} catch(const std::exception&) {}
 		}
 
@@ -124,6 +133,8 @@ int main(int argc, char** argv) {
 			std::cerr << e.what() << std::endl;
 		}
 	}
+
+	lirc_close(lirc_fd);
 
 	return 0;
 }
