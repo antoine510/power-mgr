@@ -4,12 +4,14 @@
 #include "power-meter-data.h"
 #include "SolarHeater.hpp"
 #include "IR/heat-pump.hpp"
+#include "DS18B20.hpp"
 #include <influxdb.hpp>
 
 static constexpr const char* first_serial_device = "/dev/ttyUSB0";
 static constexpr const char* second_serial_device = "/dev/ttyUSB1";
 static constexpr const char* heater_serial_device = "/dev/serial0";
 static constexpr const char* irled_serial_device = "/dev/lirc0";
+static constexpr const char* ds18b20_path = "/sys/bus/w1/devices/28-00000020605e/temperature";
 
 static constexpr const char* influxdb_org_name = "PowerPi";
 static constexpr const char* influxdb_house_bucket = "HousePower";
@@ -42,6 +44,7 @@ int main(int argc, char** argv) {
 	std::unique_ptr<PowerMeter> houseMeter, solarMeter;
 	std::unique_ptr<SolarHeater> solarHeater;
 	std::unique_ptr<HeatPump> heatPump;
+	DS18B20 ds18b20(ds18b20_path);
 
 	std::string influxdb_token;
 	try {
@@ -110,6 +113,7 @@ int main(int argc, char** argv) {
 				.field("current_solar", solarAverage.current_ma / 1000.f, 3)
 				.field("power_solar", solarAverage.power_dw / 10.f, 1)
 				.field("cos_phi_solar", solarAverage.power_factor / 100.f, 2)
+				.field("temperature", ds18b20.TakeMeasure() / 1000.f, 1)
 				.post_http(serverInfo);
 
 			if(currentTP > nextExtraTP) {
