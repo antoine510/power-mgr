@@ -89,21 +89,17 @@ int main(int argc, char** argv) {
 			} catch(const std::exception&) {}
 		}
 
-		if(!heatPump) {
+		/*if(!heatPump) {
 			try {
 				heatPump = std::make_unique<HeatPump>(irled_serial_device);
 			} catch(const std::exception&) {}
-		}
+		}*/
 
 		try {
 			for(int i = 0; i < sample_count; ++i) {
 				houseData[i] = houseMeter->ReadAll();
 				solarData[i] = solarMeter->ReadAll();
 
-				if(solarData[i].power_dw < 70) {	// If production is bellow 7W, it is actually consumption
-					houseData[i].power_dw += solarData[i].power_dw;
-					solarData[i].power_dw = 0;
-				}
 				if(heatPump) heatPump->PowerUpdate(houseData[i].power_dw, solarData[i].power_dw);
 
 				if(i < sample_count - 1) std::this_thread::sleep_for(sample_interval - std::chrono::milliseconds(150));
@@ -119,7 +115,6 @@ int main(int argc, char** argv) {
 				.field("cos_phi", houseAverage.power_factor / 100.f, 2)
 				.field("current_solar", solarAverage.current_ma / 1000.f, 3)
 				.field("power_solar", solarAverage.power_dw / 10.f, 1)
-				.field("cos_phi_solar", solarAverage.power_factor / 100.f, 2)
 				.field("temperature", ds18b20.TakeMeasure() / 1000.f, 1)
 				.post_http(serverInfo);
 
