@@ -1,5 +1,6 @@
 #include <iostream>
 #include <thread>
+#include <signal.h>
 #include "power-meter.hpp"
 #include "power-meter-data.h"
 #include "SolarHeater.hpp"
@@ -22,6 +23,9 @@ using ExtraLogPeriod = std::chrono::hours;
 static constexpr const std::chrono::seconds sample_interval = std::chrono::seconds(5);
 static constexpr const auto sample_count = LogPeriod(1) / sample_interval;
 
+std::unique_ptr<PowerMeter> houseMeter, solarMeter;
+std::unique_ptr<SolarHeater> solarHeater;
+std::unique_ptr<HeatPump> heatPump;
 
 PowerData houseData[sample_count], solarData[sample_count];
 PowerData averageSamples(PowerData* dataArray) {
@@ -40,11 +44,14 @@ PowerData averageSamples(PowerData* dataArray) {
 	return res;
 }
 
+void startWaterHeaterHandler(int) {
+	if(solarHeater) solarHeater->StartHeating();
+}
+
 int main(int argc, char** argv) {
-	std::unique_ptr<PowerMeter> houseMeter, solarMeter;
-	std::unique_ptr<SolarHeater> solarHeater;
-	std::unique_ptr<HeatPump> heatPump;
 	DS18B20 ds18b20(ds18b20_path);
+
+	signal(SIGUSR1, startWaterHeaterHandler);
 
 	std::string influxdb_token;
 	try {
@@ -126,7 +133,7 @@ int main(int argc, char** argv) {
 			}
 
 			if(solarHeater) {
-				HeaterData heaterData = solarHeater->ReadAll();
+				HeaterData heaterData = solarHeater->ReadData();
 
 				influxdb_cpp::builder()
 					.meas("Heater")

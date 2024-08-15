@@ -6,13 +6,18 @@
 
 SolarHeater::SolarHeater(const std::string& path) : _serial(path, 9600) {}
 
-HeaterData SolarHeater::ReadAll() {
-    static uint8_t readAllCmd[] = {0x4f, 0xc7, 0x01};
-    _serial.Write(readAllCmd, sizeof(readAllCmd));
-    HeaterData res;
-    auto data = _serial.Read();
-    int i = 0;
-    res.temp_dC = READ_S16;
-    res.heater_on = data[i++];
-    return res;
+HeaterData SolarHeater::ReadData() {
+	static uint8_t readAllCmd[] = {0x4f, 0xc7, 0x01};
+	_serial.Write(readAllCmd, sizeof(readAllCmd));
+	HeaterData res;
+	auto data = _serial.Read();
+	int i = 0;
+	res.temp_dC = READ_S16;
+	res.heater_on = data[i++];
+	return res;
+}
+
+void SolarHeater::StartHeating() {
+	static uint8_t cmd[] = {0x4f, 0xc7, 0x02};
+	_serial.Write(cmd, sizeof(cmd));
 }
