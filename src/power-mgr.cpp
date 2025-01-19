@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <thread>
 #include <signal.h>
@@ -6,6 +7,7 @@
 #include "SolarHeater.hpp"
 #include "IR/heat-pump.hpp"
 #include "DS18B20.hpp"
+#include "ws2811/ws2811.h"
 #include <influxdb.hpp>
 
 static constexpr const char* first_serial_device = "/dev/ttyUSB0";
@@ -26,6 +28,7 @@ static constexpr const auto sample_count = LogPeriod(1) / sample_interval;
 std::unique_ptr<PowerMeter> houseMeter, solarMeter;
 std::unique_ptr<SolarHeater> solarHeater;
 std::unique_ptr<HeatPump> heatPump;
+bool running = true;
 
 PowerData houseData[sample_count], solarData[sample_count];
 PowerData averageSamples(PowerData* dataArray) {
@@ -47,10 +50,36 @@ PowerData averageSamples(PowerData* dataArray) {
 void startWaterHeaterHandler(int) {
 	if(solarHeater) solarHeater->StartHeating();
 }
+void stopService(int) {
+	running = false;
+}
 
 int main(int argc, char** argv) {
 	DS18B20 ds18b20(ds18b20_path);
+	ws2811_t leds = {
+		.freq = WS2811_TARGET_FREQ,
+		.dmanum = 10,
+		.channel = {
+			[0] = {
+				.gpionum = 18,
+				.invert = 0,
+				.count = 21,
+				.strip_type = WS2811_STRIP_GRB,
+				.brightness = 64,
+			},
+			[1] = {
+				.gpionum = 0,
+				.invert = 0,
+				.count = 0,
+				.brightness = 0,
+			}
+		}
+	};
+	auto led_status = ws2811_init(&leds);
+	if(led_status != 0) return -1;
 
+	signal(SIGINT, stopService);
+	signal(SIGTERM, stopService);
 	signal(SIGUSR1, startWaterHeaterHandler);
 
 	std::string influxdb_token;
@@ -78,7 +107,7 @@ int main(int argc, char** argv) {
 
 	auto nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(std::chrono::system_clock::now());
 
-	while(true) {
+	while(running) {
 		const auto currentTP = std::chrono::system_clock::now();
 		const auto nextMinuteTP = std::chrono::ceil<LogPeriod>(currentTP);
 		std::this_thread::sleep_until(nextMinuteTP);	// Perform measurments at minute marks
@@ -99,6 +128,17 @@ int main(int argc, char** argv) {
 			for(int i = 0; i < sample_count; ++i) {
 				houseData[i] = houseMeter->ReadAll();
 				solarData[i] = solarMeter->ReadAll();
+
+				int pdiff_dw = solarData[i].power_dw - houseData[i].power_dw;
+				int led_count = abs(pdiff_dw) / 1000;
+				int led_frac = (abs(pdiff_dw) - led_count * 1000) * 256 / 1000;
+				if(led_count > 20) led_count = 20;
+				uint32_t color = pdiff_dw > 0 ? 8 : 16;
+				int li = 0;
+				while(li < led_count) leds.channel[0].leds[20 - li++] = 0xff << color;
+				leds.channel[0].leds[20 - li++] = led_frac << color;
+				while(li < 21) leds.channel[0].leds[20 - li++] = 0;
+				ws2811_render(&leds);
 
 				if(heatPump) heatPump->PowerUpdate(houseData[i].power_dw, solarData[i].power_dw);
 
@@ -149,6 +189,7 @@ int main(int argc, char** argv) {
 			std::cerr << e.what() << std::endl;
 		}
 	}
+	ws2811_fini(&leds);
 
 	return 0;
 }

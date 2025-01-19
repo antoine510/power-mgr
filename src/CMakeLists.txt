@@ -32,6 +32,6 @@ set(SOURCE_FILES
 )
 add_executable(power-mgr ${SOURCE_FILES})
 
-target_link_libraries(power-mgr pthread)
+target_link_libraries(power-mgr pthread ws2811)
 
 install(TARGETS power-mgr RUNTIME)
