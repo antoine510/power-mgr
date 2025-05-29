@@ -3,20 +3,25 @@
 #include "power-meter.hpp"
 #include "power-meter-data.h"
 #include <influxdb.hpp>
+#include "MQTTComms.hpp"
+#include "battery_generated.h"
+#include "ws281x.hpp"
 
 static constexpr const char* house_device = "/dev/power-house";
 static constexpr const char* solar_device = "/dev/power-solar";
 
 static constexpr const char* influxdb_ip = "192.168.1.37";
-static constexpr const int influxdb_port = 8086;
+static constexpr int influxdb_port = 8086;
 static constexpr const char* influxdb_org_name = "Microtonome";
 static constexpr const char* influxdb_bucket = "EDF";
+
+static constexpr unsigned numLEDs = 20;
 
 using LogPeriod = std::chrono::minutes;
 using ExtraLogPeriod = std::chrono::hours;
 
-static constexpr const std::chrono::seconds sample_interval = std::chrono::seconds(5);
-static constexpr const auto sample_count = LogPeriod(1) / sample_interval;
+static constexpr std::chrono::seconds sample_interval = std::chrono::seconds(5);
+static constexpr auto sample_count = LogPeriod(1) / sample_interval;
 
 static constexpr unsigned maxReadFails = 4;
 
@@ -58,6 +63,22 @@ int main(int argc, char** argv) {
 		.meas("Extra")
 		.field("restart", true)
 		.post_http(serverInfo);
+
+	ws281x::TSPIDriver spiDev("/dev/spidev1.0", ws281x::HZ_SPI_NEOPIXEL);
+	ws281x::TWS2812B leds[numLEDs];
+
+	MQTTComms mqtt("power-mgr");
+
+	mqtt.Subscribe("Battery/House", 0, [&](mqtt::const_message_ptr msg) {
+		const auto& bat = *flatbuffers::GetRoot<api::Battery>(msg->get_payload().data());
+		float voltageRatio = (float)(bat.voltage() - 6800) / (8200 - 6800);
+		constexpr int brightness = 64;
+
+		for(int i = 0; i < 20; ++i) {
+			leds[i].RGB(0, 0, std::max(std::min(voltageRatio * 20 - i, 1.f), 0.f) * brightness);
+		}
+		spiDev.SendData(leds, sizeof(leds));
+	});
 
 	auto nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(std::chrono::system_clock::now());
 	unsigned readFailCount = 0;

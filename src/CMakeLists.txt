@@ -4,6 +4,12 @@
 ########
 
 set(SOURCE_FILES
+	ws281x.hpp
+	ws281x.cpp
+
+	MQTTComms.hpp
+	MQTTComms.cpp
+
 	power-meter-data.h
 
 	power-meter.hpp
@@ -12,9 +18,6 @@ set(SOURCE_FILES
 	power-mgr.cpp
 )
 add_executable(power-mgr ${SOURCE_FILES})
-
-if(WINDOWS_HOST)
-	set_target_properties(power-mgr PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/Install/bin/")
-endif()
+target_link_libraries(power-mgr PahoMqttCpp::paho-mqttpp3 flatbuffers_target)
 
 install(TARGETS power-mgr RUNTIME)
