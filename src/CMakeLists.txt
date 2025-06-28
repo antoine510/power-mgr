@@ -14,8 +14,8 @@ set(SOURCE_FILES
 	IR/heat-pump.hpp
 	IR/heat-pump.cpp
 
-	DS18B20.hpp
-	DS18B20.cpp
+	SHTC3.hpp
+	SHTC3.cpp
 
 	SerialHandler.hpp
 	SerialHandler.cpp
