@@ -36,8 +36,12 @@ elseif(LINUX_TARGET)
 endif()
 
 find_package(yaml-cpp CONFIG REQUIRED)
+find_package(PahoMqttCpp CONFIG REQUIRED)
+find_package(Flatbuffers CONFIG REQUIRED)
 
 include_directories("influxdb")
+
+add_subdirectory(microtonome-idl)
 
 include_directories("src")
 add_subdirectory("src")

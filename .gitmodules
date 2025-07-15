@@ -1,3 +1,6 @@
 [submodule "influxdb"]
 	path = influxdb
 	url = https://github.com/TheYonkk/influxdb-cpp-2.git
+[submodule "microtonome-idl"]
+	path = microtonome-idl
+	url = git@github.com:antoine510/microtonome-idl.git
