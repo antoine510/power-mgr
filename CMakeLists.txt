@@ -33,8 +33,9 @@ if(WINDOWS_TARGET)
 	add_definitions(-D_ITERATOR_DEBUG_LEVEL=${_ITERATOR_DEBUG_LEVEL})
 elseif(LINUX_TARGET)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 endif()
+
+find_package(yaml-cpp CONFIG REQUIRED)
 
 include_directories("influxdb")
 
