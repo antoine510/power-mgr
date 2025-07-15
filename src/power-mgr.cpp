@@ -5,6 +5,7 @@
 #include <signal.h>
 
 #include "power-meter.hpp"
+#include "SHTC3.hpp"
 #include <influxdb.hpp>
 #include <yaml-cpp/yaml.h>
 
@@ -27,6 +28,8 @@ int main(int argc, char** argv) {
 
 	YAML::Node config = YAML::LoadFile("config.yaml");
 	auto influxConfig = config["influx"];
+
+	SHTC3 shtc3;
 
 	std::unordered_map<std::string, PowerMeter> powerMeters;
 	try {
@@ -58,13 +61,24 @@ int main(int argc, char** argv) {
 
 		if(now > nextLogTP) {
 			try {
-				// Send log to InfluxDB
+				shtc3.Measure();
+				auto powerAverage = powerMeters.at("Appart").GetAverageData();
+
+				influxdb_cpp::builder builder;
+				builder.meas("Power")
+					.field("voltage", powerAverage.voltage_dv / 10.f, 1)
+					.field("current", powerAverage.current_ma / 1000.f, 3)
+					.field("power", powerAverage.power_dw / 10.f, 1)
+					.field("cos_phi", powerAverage.power_factor / 100.f, 2)
+					.field("temperature", shtc3.GetTemp_mC() / 1000.f, 2)
+					.field("humidity", shtc3.GetRH_permille() / 10.f, 1);
 
 				if(now > nextExtraTP) {
-					// Send extra log to InfluxDB
-
+					((influxdb_cpp::detail::field_caller&)builder).field("energy", (long)powerAverage.energy_wh);
 					nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(now);
 				}
+
+				((influxdb_cpp::detail::field_caller&)builder).post_http(serverInfo);
 			} catch(const std::exception& e) {
 				std::cerr << e.what() << std::endl;
 			}
