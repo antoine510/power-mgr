@@ -19,6 +19,7 @@ public:
 
 	void TakeSample() { _samples.emplace_back(ReadAll()); }
 	Data GetAverageData();
+	Data GetLatestData() const { return _samples.back(); }
 private:
 	enum CmdWord : uint8_t {
 		READ_SLAVE = 0x3,

@@ -3,41 +3,77 @@
 #include <cstring>
 #include <unistd.h>
 #include <fcntl.h>
-#include <asm/termbits.h>
+//#include <asm/termbits.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 
 #define GET_ERROR_STR std::string(strerror(errno))
 #define GET_ERROR errno
 
-Serial::Serial(const std::string& path, int baudrate) {
-	if (_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC); _fd < 0)
-		throw std::runtime_error("Open failed: " + GET_ERROR_STR);
+Serial::Serial(const std::string& path, int baudrate) : _path(path) {
+	if (_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK); _fd < 0)
+		throw std::runtime_error("Open failed " + path + ": " + GET_ERROR_STR);
 
-	termios2 tc{};
+	/*termios2 tc{};
 
 	tc.c_iflag = 0;
 	tc.c_oflag = 0;
 	tc.c_lflag = 0;
 	tc.c_cflag = CLOCAL | CS8 | BOTHER;
 	tc.c_cc[VMIN] = 0;
-	tc.c_cc[VTIME] = 0;
+	tc.c_cc[VTIME] = 0;*/
 
 	/** HACK to really set the baudrate!! */
-	tc.c_ispeed = 19200;
+	/*tc.c_ispeed = 19200;
 	tc.c_ospeed = 19200;
 
 	if(ioctl(_fd, TCSETS2, &tc) != 0) {
 		::close(_fd);
 		throw std::runtime_error("TCSETS2 failed: " + GET_ERROR_STR);
-	}
+	}*/
 	/** END HACK */
 
-	tc.c_ispeed = baudrate;
+	/*tc.c_ispeed = baudrate;
 	tc.c_ospeed = baudrate;
 
 	if(ioctl(_fd, TCSETS2, &tc) != 0) {
 		::close(_fd);
 		throw std::runtime_error("TCSETS2 failed: " + GET_ERROR_STR);
+	}*/
+
+
+	struct termios tc;
+	bzero(&tc, sizeof(tc));
+
+	if (tcgetattr(_fd, &tc) != 0) {
+		::close(_fd);
+		throw std::runtime_error("tcgetattr failed: " + GET_ERROR_STR);
+	}
+
+	tc.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
+	tc.c_oflag &= ~(OCRNL | ONLCR | ONLRET | ONOCR | OFILL | OPOST);
+	tc.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG | TOSTOP);
+	tc.c_cflag &= ~(CSIZE | PARENB | CRTSCTS);
+	tc.c_cflag |= CS8;
+
+	tc.c_cc[VMIN] = 0; // We are ok with 0 bytes.
+	tc.c_cc[VTIME] = 0; // Timeout after 1 second.
+
+	tc.c_cflag |= CLOCAL; // Without this a write() blocks indefinitely.
+
+	if (cfsetispeed(&tc, B9600) != 0) {
+		::close(_fd);
+		throw std::runtime_error("cfsetispeed failed: " + GET_ERROR_STR);
+	}
+
+	if (cfsetospeed(&tc, B9600) != 0) {
+		::close(_fd);
+		throw std::runtime_error("cfsetospeed failed: " + GET_ERROR_STR);
+	}
+
+	if (tcsetattr(_fd, TCSANOW, &tc) != 0) {
+		::close(_fd);
+		throw std::runtime_error("tcsetattr failed: " + GET_ERROR_STR);
 	}
 }
 
@@ -70,7 +106,7 @@ std::vector<uint8_t> Serial::Read(size_t expectedSize) const {
 		offset += numRead;
 		if(expectedSize && offset >= expectedSize) break;
 	} while(WaitForData());
-	if(offset == 0) throw ReadTimeoutException();
+	if(offset == 0) throw ReadTimeoutException(_path);
 	if(expectedSize && offset < expectedSize) throw std::runtime_error("Invalid receive size: " + std::to_string(offset));
 	std::vector<uint8_t> res(offset);
 	std::memcpy(res.data(), buffer, offset);
@@ -79,5 +115,5 @@ std::vector<uint8_t> Serial::Read(size_t expectedSize) const {
 
 void Serial::Write(const uint8_t* buf, size_t sz) const {
 	ioctl(_fd, TCFLSH, 2);	// Flush read and write kernel queues
-	if(::write(_fd, buf, sz) != sz) throw WriteException();
+	if(::write(_fd, buf, sz) != sz) throw WriteException(_path);
 }
