@@ -1,11 +1,16 @@
 
-########
-# Power manager
-########
-
 set(SOURCE_FILES
 	Serial.hpp
 	Serial.cpp
+
+	ws281x.hpp
+	ws281x.cpp
+
+	SHTC3.hpp
+	SHTC3.cpp
+
+	WaterHeater.hpp
+	WaterHeater.cpp
 
 	power-meter.hpp
 	power-meter.cpp
