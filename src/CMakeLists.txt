@@ -12,6 +12,9 @@ set(SOURCE_FILES
 	WaterHeater.hpp
 	WaterHeater.cpp
 
+	Marstek.hpp
+	Marstek.cpp
+
 	power-meter.hpp
 	power-meter.cpp
 

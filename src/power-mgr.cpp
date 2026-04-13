@@ -11,6 +11,7 @@
 #include <yaml-cpp/yaml.h>
 #include "SHTC3.hpp"
 #include "WaterHeater.hpp"
+#include "Marstek.hpp"
 
 using SamplePeriod = std::chrono::duration<int64_t, std::ratio<5>>;
 using LogPeriod = std::chrono::minutes;
@@ -54,6 +55,8 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+	VenusE battery(config["battery"]["ip"].as<std::string>(), config["battery"]["port"].as<unsigned>());
+	VenusE::UsefulInfo latestBatteryInfo{};
 
 	influxdb_cpp::server_info serverInfo(influxConfig["ip"].as<std::string>(), 8086, influxConfig["org"].as<std::string>(), influxConfig["token"].as<std::string>(), influxConfig["bucket"].as<std::string>());
 
@@ -66,6 +69,10 @@ int main(int argc, char** argv) {
 		now = std::chrono::system_clock::now();
 		
 		if(serviceCV.wait_until(lk, std::chrono::ceil<SamplePeriod>(now)) != std::cv_status::timeout) continue;
+
+		try {
+			latestBatteryInfo = battery.GetUsefulInfo();
+		} catch(std::runtime_error&) {}
 
 		try {
 			for(auto& pair : powerMeters) pair.second.TakeSample();
@@ -105,6 +112,8 @@ int main(int argc, char** argv) {
 					.field("power_solar", solarAverage.power_dw / 10.f, 1)
 					.field("temperature", shtc3.GetTemp_mC() / 1000.f, 2)
 					.field("humidity", shtc3.GetRH_permille() / 10.f, 1)
+					.field("bat_soc", (int)latestBatteryInfo.soc)
+					.field("bat_power", latestBatteryInfo.gridPower)
 					.post_http(serverInfo);
 				
 				if(waterHeater) {
@@ -122,6 +131,8 @@ int main(int argc, char** argv) {
 						.meas("HouseExtra")
 						.field("energy", houseAverage.energy_wh / 1000.f, 3)
 						.field("energy_solar", solarAverage.energy_wh / 1000.f, 3)
+						.field("battery_in", latestBatteryInfo.gridInputEnergy / 1000.f, 3)
+						.field("battery_out", latestBatteryInfo.gridOutputEnergy/ 1000.f, 3)
 						.post_http(serverInfo);
 					nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(now);
 				}
