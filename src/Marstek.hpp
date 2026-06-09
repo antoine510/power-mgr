@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <stdexcept>
 #include "json/json_fwd.hpp"
 
 class VenusE {
@@ -10,6 +11,11 @@ public:
 		int gridPower;
 		unsigned gridInputEnergy;
 		unsigned gridOutputEnergy;
+	};
+
+	class TimeoutError : public std::runtime_error {
+	public:
+		TimeoutError() : std::runtime_error("Timed out") {}
 	};
 
 	VenusE(const std::string& ip, uint16_t port);
