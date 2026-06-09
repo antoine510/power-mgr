@@ -67,12 +67,15 @@ int main(int argc, char** argv) {
 	std::unique_lock lk(serviceMutex);
 	while(serviceRunning) {
 		now = std::chrono::system_clock::now();
-		
+
 		if(serviceCV.wait_until(lk, std::chrono::ceil<SamplePeriod>(now)) != std::cv_status::timeout) continue;
 
 		try {
 			latestBatteryInfo = battery.GetUsefulInfo();
-		} catch(std::runtime_error&) {}
+		} catch(const VenusE::TimeoutError&) {
+		} catch(const std::runtime_error& e) {
+			std::cerr << e.what() << std::endl;
+		}
 
 		try {
 			for(auto& pair : powerMeters) pair.second.TakeSample();
