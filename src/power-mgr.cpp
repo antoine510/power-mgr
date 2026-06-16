@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
 		try {
 			latestBatteryInfo = battery.GetUsefulInfo();
 		} catch(const VenusE::TimeoutError&) {
+		} catch(const VenusE::ParseError&) {
 		} catch(const std::runtime_error& e) {
 			std::cerr << e.what() << std::endl;
 		}
