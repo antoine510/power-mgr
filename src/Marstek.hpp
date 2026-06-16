@@ -3,6 +3,7 @@
 #include <string>
 #include <stdexcept>
 #include "json/json_fwd.hpp"
+#include <netinet/in.h>
 
 class VenusE {
 public:
@@ -16,6 +17,11 @@ public:
 	class TimeoutError : public std::runtime_error {
 	public:
 		TimeoutError() : std::runtime_error("Timed out") {}
+	};
+
+	class ParseError : public std::runtime_error {
+	public:
+		ParseError() : std::runtime_error("Parse error") {}
 	};
 
 	VenusE(const std::string& ip, uint16_t port);
@@ -35,5 +41,6 @@ private:
 	int callID = 0;
 
 	int _fd = -1;
+	sockaddr_in _serverAddr{};
 	char _recvBuffer[1024];
 };
