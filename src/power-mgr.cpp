@@ -12,6 +12,7 @@
 #include "SHTC3.hpp"
 #include "WaterHeater.hpp"
 #include "Marstek.hpp"
+#include "meteofrance.hpp"
 
 using SamplePeriod = std::chrono::duration<int64_t, std::ratio<5>>;
 using LogPeriod = std::chrono::minutes;
@@ -55,6 +56,8 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+	MeteoFrance meteo(config["meteo"]["token"].as<std::string>(), config["meteo"]["station"].as<std::string>());
+
 	VenusE battery(config["battery"]["ip"].as<std::string>(), config["battery"]["port"].as<unsigned>());
 	VenusE::UsefulInfo latestBatteryInfo{};
 
@@ -63,6 +66,7 @@ int main(int argc, char** argv) {
 	auto now = std::chrono::system_clock::now();
 	auto nextLogTP = std::chrono::ceil<LogPeriod>(now);
 	auto nextExtraTP = std::chrono::ceil<ExtraLogPeriod>(now);
+	int minuteIndex = 0;
 
 	std::unique_lock lk(serviceMutex);
 	while(serviceRunning) {
@@ -101,6 +105,19 @@ int main(int argc, char** argv) {
 		}
 
 		if(now > nextLogTP) {
+			if(!(minuteIndex++ % 6)) {
+				try {
+					auto weather = meteo.GetWeatherData();
+					influxdb_cpp::builder()
+						.meas("Weather")
+						.field("temperature", weather.temp_c, 1)
+						.field("humidity", weather.humidity_rh)
+						.post_http(serverInfo);
+				} catch(const std::exception& e) {
+					std::cerr << e.what() << std::endl;
+				}
+			}
+
 			try {
 				shtc3.Measure();
 				auto houseAverage = powerMeters.at("House").GetAverageData();

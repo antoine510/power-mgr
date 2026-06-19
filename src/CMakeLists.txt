@@ -15,6 +15,9 @@ set(SOURCE_FILES
 	Marstek.hpp
 	Marstek.cpp
 
+	meteofrance.hpp
+	meteofrance.cpp
+
 	power-meter.hpp
 	power-meter.cpp
 
@@ -22,6 +25,6 @@ set(SOURCE_FILES
 )
 add_executable(power-mgr ${SOURCE_FILES})
 
-target_link_libraries(power-mgr PUBLIC yaml-cpp)
+target_link_libraries(power-mgr PUBLIC yaml-cpp CURL::libcurl)
 
 install(TARGETS power-mgr RUNTIME)

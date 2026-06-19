@@ -36,6 +36,7 @@ elseif(LINUX_TARGET)
 endif()
 
 find_package(yaml-cpp CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 
 include_directories("influxdb")
 
